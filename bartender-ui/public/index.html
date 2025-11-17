@@ -14,7 +14,18 @@
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{height:100%;margin:0;background:#000;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;color:var(--fg)}
     .stage{height:100%;display:grid;place-items:center}
-    .watch{position:relative;width:var(--diameter);height:var(--diameter);border-radius:50%;overflow:hidden;user-select:none;background:url('./assets/home.png') center/cover no-repeat;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    .watch{
+      position:relative;
+      width:var(--diameter);
+      height:var(--diameter);
+      border-radius:50%;
+      overflow:hidden;
+      user-select:none;
+      background:url('./assets/home.png') center/cover no-repeat;
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+      opacity:0;                    /* 初始隐藏，待启动视频结束后淡入 */
+      transition:opacity .6s ease-out;
+    }
     .carousel{display:flex;height:100%;width:calc(2 * var(--diameter));transition:transform .42s cubic-bezier(.22,.61,.36,1)}
     .page{position:relative;flex:0 0 var(--diameter);height:100%}
 
@@ -477,7 +488,29 @@
     // 初始定位到第一页
     go(0);
 
-    // ====== 启动视频播放 ======
+    // ====== 启动视频播放 + 首页淡入 ======
+    function showHomeWithFade() {
+      const startupVideo = document.getElementById('startupVideo');
+      const watchEl = document.getElementById('watch');
+
+      // 确保切到首页
+      go(0);
+
+      // 首页淡入
+      if (watchEl) {
+        watchEl.style.opacity = '1';
+      }
+
+      // 启动视频淡出后隐藏
+      if (startupVideo) {
+        startupVideo.style.transition = 'opacity .6s ease-out';
+        startupVideo.style.opacity = '0';
+        setTimeout(() => {
+          startupVideo.style.display = 'none';
+        }, 600);
+      }
+    }
+
     function playStartupVideo() {
       const startupVideo = document.getElementById('startupVideo');
       if (!startupVideo) {
@@ -518,25 +551,22 @@
               startupVideo.play().catch(e => {
                 console.error('❌ Failed to play startup video:', e);
                 // If still fails, just go to home page
-                startupVideo.style.display = 'none';
-                go(0);
+                showHomeWithFade();
               });
             });
         }
       }
 
-      // When video ends, hide it and go to home page
+      // When video ends, hide it and go to home page with fade
       startupVideo.onended = function() {
         console.log('📹 Startup video finished, going to home page...');
-        startupVideo.style.display = 'none';
-        go(0); // Ensure we're on the home page
+        showHomeWithFade();
       };
 
       // Handle video errors
       startupVideo.onerror = function() {
         console.error('❌ Startup video failed to load');
-        startupVideo.style.display = 'none';
-        go(0); // Go to home page even if video fails
+        showHomeWithFade();
       };
     }
 
