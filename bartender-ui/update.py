@@ -14,7 +14,7 @@ REPO_SUB_DIR = "bartender-ui"  # 需要稀疏检出的子目录
 WORK_DIR = os.path.join(TARGET_DIR, REPO_SUB_DIR)  # 前端项目所在目录（npm 在这里执行）
 # =================================================
 
-def run_command(command, cwd=None):
+def run_command(command, cwd=None, timeout=None):
     try:
         result = subprocess.run(
             command,
@@ -22,9 +22,12 @@ def run_command(command, cwd=None):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            check=True
+            check=True,
+            timeout=timeout
         )
         return {"success": True, "output": result.stdout.strip()}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": f"命令超时：{' '.join(command)}"}
     except subprocess.CalledProcessError as e:
         return {"success": False, "error": e.stderr.strip() or str(e)}
 
@@ -46,7 +49,8 @@ def init_repo():
         # 使用稀疏克隆，只获取必要对象
         clone_res = run_command(
             ["git", "clone", "--filter=blob:none", "--sparse", REPO_URL, target_name],
-            cwd=parent_dir
+            cwd=parent_dir,
+            timeout=10
         )
         if not clone_res["success"]:
             return clone_res
