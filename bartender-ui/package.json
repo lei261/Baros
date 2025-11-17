@@ -1,6 +1,7 @@
 {
   "name": "bartender-ui",
   "version": "1.0.0",
+  "type": "module",
   "lockfileVersion": 3,
   "requires": true,
   "private": true,
@@ -10,9 +11,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "cron": "^4.3.4",
     "express": "^5.1.0",
     "node-fetch": "^3.3.2",
-    "serialport": "^13.0.0",
+    "serialport": "^12.0.0",
     "ws": "^8.18.3"
   }
 }

@@ -1,0 +1,956 @@
+<!-- 调酒机屏幕 Web App (720×720 圆屏，双页面左右滑动) -->
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+  <meta name="google" content="notranslate">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>调酒机屏幕</title>
+  <style>
+    :root{
+      --diameter: 100vmin;
+      --fg:#E8DBFF; --fg-dim:#B8A6DF; --fg-weak:#7E6FB1; --accent:#A78BFA;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;margin:0;background:#000;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;color:var(--fg)}
+    .stage{height:100%;display:grid;place-items:center}
+    .watch{position:relative;width:var(--diameter);height:var(--diameter);border-radius:50%;overflow:hidden;user-select:none;background:url('./assets/home.png') center/cover no-repeat;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    .carousel{display:flex;height:100%;width:calc(2 * var(--diameter));transition:transform .42s cubic-bezier(.22,.61,.36,1)}
+    .page{position:relative;flex:0 0 var(--diameter);height:100%}
+
+    .title{position:absolute;top:12%;left:50%;transform:translateX(-50%);font-size:clamp(36px,3.6vmin,28px);font-weight:700;letter-spacing:.3px;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+
+    .bottles{
+      position:absolute;
+      left:50%;
+      top:45%;                           /* ← 中心点在屏幕正中 */
+      transform:translate(-50%,-50%);    /* ← 以自身中心对齐 */
+      width:86%;
+      display:flex;
+      justify-content:space-between;
+      gap:1.6%;
+    }
+
+    /* 可选：让瓶子底部在同一基线、视觉更整齐 */
+    .bottle{
+      width:calc(100%/7 - .1vmin);
+      aspect-ratio:1/3.2;
+      background-size:contain;
+      background-repeat:no-repeat;
+      background-position:center bottom;  /* ← 底对齐，通常更好看 */
+      opacity:.95;
+      filter:drop-shadow(0 6px 8px rgba(0,0,0,.35));
+    }
+    .bottle.full{background-image:url('./assets/bottle_full.png')}
+    .bottle.empty{background-image:url('./assets/bottle_empty.png');opacity:.35}
+
+    .waterTank{
+      position:absolute;
+      left:50%;
+      bottom:22%;          /* ← 原14%，上移一些。你可按视觉微调为 20~25% */
+      transform:translateX(-50%);
+      width:64px;
+      height:64px;
+      /* border-radius:20px; */
+      /* border:1px solid rgba(232,219,255,.35); */
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.0));
+      display:grid;
+      place-items:center;
+      backdrop-filter:blur(6px);
+      cursor:pointer;
+      transition:.2s;
+    }
+    .waterTank img{width:28px;height:28px;opacity:.9}
+
+  .panel{
+    padding: 18% 12% 14%;   /* 原先大概 14%/12%/12% → 顶部加大、底部也加一点 */
+    display: flex;
+    flex-direction: column;
+    gap: 18px;              /* 按钮与列表之间加间距 */
+    max-width: 78%;
+    margin: 0 auto;
+  } 
+
+
+
+/* ===== 布局与留白 ===== */
+/* ===== 布局与留白（更像目标图） ===== */
+
+  /* 让设置页整体更靠中间，左右留白舒适 */
+  /* .panel{
+    padding: 14% 11% 12%;
+    max-width: 78%;
+    margin: 0 auto;
+  } */
+
+  /* ===== 自清洁：居中大胶囊按钮（更接近目标图风格） ===== */
+  .btn-xl{
+    display:flex; align-items:center; justify-content:center;
+    height:56px; width:100%;
+    margin: 10px auto 18px;
+    align-self: flex-end;   /* 保持在右侧 */
+    margin-bottom: 6px;     /* 按钮下方再留点气口 */
+    border-radius: 999px;
+    font-weight: 700; letter-spacing:.3px; color:#fff;
+    background:
+      radial-gradient(120% 160% at 50% 0%, rgba(255,255,255,.08), rgba(255,255,255,0) 60%),
+      linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+    border:1px solid rgba(232,219,255,.35);
+    box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.05);
+    text-shadow: 0 2px 10px rgba(0,0,0,.35);
+    backdrop-filter: blur(4px);
+  }
+  .btn-xl img{ width:20px; height:20px; margin-right:10px; opacity:.95 }
+/* hover 高亮 */
+  .btn-xl:hover {
+    background: linear-gradient(180deg, #b39cff 0%, #9a84f8 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(167,139,250,0.5);
+  }
+
+  /* active 点击压下效果 */
+  .btn-xl:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4) inset;
+    background: linear-gradient(180deg, #8d73ff 0%, #6f57e8 100%);
+  }
+
+  /* ===== 列表行：左图标+文字，右对齐数值；第二行是slider ===== */
+  .list{
+    margin-top: 6px;        /* 列表整体往下挪一点 */
+    display: flex;
+    flex-direction: column;
+    gap: 22px;              /* 行距更大，整页更“铺” */
+  }
+
+  .row{
+    display:grid;
+    grid-template-columns: auto 1fr auto; /* 图标与标题 | 弹性空白 | 右值/开关 */
+    grid-template-rows: auto auto;        /* 第一行文本，第二行slider */
+    align-items:center;
+    gap: 6px 12px;
+    padding: 6px 0;
+    row-gap: 10px;          /* 第一行文本 与 第二行 slider 的垂直间距 */
+    min-height: 56px;       /* 让没有 slider 的行（Fridge/LED）也更高一些 */
+  }
+  .row .label{
+    grid-column:1; grid-row:1;
+    display:flex; align-items:center; gap:8px;
+    font-weight:600;
+  }
+  .row .label img{ width:20px; height:20px; opacity:.9 }
+  .row .val{
+    grid-column:3; grid-row:1;
+    justify-self:end; font-weight:600; white-space:nowrap;
+  }
+  /* slider 占满第二行 */
+  .row input[type='range']{
+    grid-column: 1 / 4;
+    grid-row: 2;
+    margin-top: 10px;
+  }
+
+/* ===== Slider：左白右灰 + 明显的圆形滑块 ===== */
+/* ===== Slider：左白右灰 + 圆钮不被裁 ===== */
+  :root{ --slider-h: 8px; --thumb: 22px; }
+
+  /* 轨道画在“内容盒子”中，控件整体高度=圆钮高度 */
+  input[type='range']{
+    -webkit-appearance:none; appearance:none;
+    width:100%;
+    height: var(--thumb);                         /* 高度给 thumb */
+    padding: calc((var(--thumb) - var(--slider-h)) / 2) 0;  /* 垂直内边距=让轨道居中 */
+    background:
+      linear-gradient(90deg, #fff 0 var(--p,50%),
+                            rgba(255,255,255,.22) var(--p,50%) 100%);
+    background-clip: content-box;                 /* 只在内容区绘制轨道 */
+    border-radius: 999px;
+    outline: none;
+    overflow: visible;                             /* 确保不裁剪 thumb */
+    cursor: pointer;
+    transition: background .2s;
+  }
+
+  /* WebKit */
+  input[type='range']::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width: var(--thumb); height: var(--thumb);
+    border-radius:50%;
+    background:#fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), inset 0 0 4px rgba(255,255,255,.6);
+    /* 不要再用 margin-top；padding 已经让轨道居中 */
+    cursor: grab; transition: transform .15s ease;
+  }
+  input[type='range']::-webkit-slider-thumb:active{ transform: scale(1.12); cursor: grabbing; }
+
+  /* Firefox：把轨道也设成同样的背景与圆角 */
+  input[type='range']::-moz-range-track{
+    height: var(--slider-h);
+    background:
+      linear-gradient(90deg, #fff 0 var(--p,50%),
+                            rgba(255,255,255,.22) var(--p,50%) 100%);
+    border-radius: 999px;
+  }
+  input[type='range']::-moz-range-thumb{
+    width: var(--thumb); height: var(--thumb);
+    border:none; border-radius:50%; background:#fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), inset 0 0 4px rgba(255,255,255,.6);
+    cursor: grab; transition: transform .15s ease;
+  }
+  input[type='range']::-moz-range-thumb:active{ transform: scale(1.12); }
+
+  /* 保持两端圆角 */
+  /* input[type='range'] { clip-path: inset(0 round 999px); } */
+
+
+  /* ===== Switch：小巧 iOS 风，关=灰，开=紫，白色圆点 ===== */
+  .row .switch{
+    grid-column: 3;     /* 放到第3列 */
+    grid-row: 1;        /* 第一行 */
+    justify-self: end;
+    align-self: center; /* 垂直居中（防止偏上/偏下） */
+    width: 56px;             /* 原 36px → 更宽 */
+    height: 30px;            /* 原 20~22px → 更高 */
+    border-radius: 999px;
+    background: rgba(255,255,255,.22);
+    border: 1px solid rgba(255,255,255,.28);
+    position: relative;
+    transition: background .2s;
+  }
+
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    width: 24px;             /* 圆点更大 */
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    transition: left .25s cubic-bezier(.4, .1, .2, 1);
+  }
+
+  .switch.on {
+    background: linear-gradient(180deg, #a58bfa, #8b74e8);
+  }
+
+  .switch.on::after {
+    left: 29px;              /* 根据宽度重新对齐 */
+  }
+
+  /* 确保开关在右侧对齐 */
+
+  /* 底部页码点距底稍上 */
+  .dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:7%; display:flex; gap:8px; }
+  .dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.25) }
+  .dot.active{ background:#a78bfa }
+
+
+  /* ===== Status bar: WiFi + Server icons (top-right) ===== */
+  .statusBar{
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top:5%;
+    display:flex;
+    gap:12px;
+    align-items:center;
+    z-index: 5;
+  }
+  .status{
+    width:15px; height:15px;
+    transition: opacity .2s ease;
+    opacity: 0.2;
+    filter: brightness(0) invert(1) opacity(0.7);
+  }
+  .status.online{ 
+    opacity: 1;
+    filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
+  }
+
+
+  
+
+
+
+
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="watch" id="watch">
+      <div class="carousel" id="carousel" style="transform:translateX(0)">
+        <section class="page" aria-label="Home">
+          <div class="title">Break Real</div>
+          <div class="statusBar">
+            <img id="iconWifi" class="status" src="./assets/icons/wifi.png" alt="WiFi"/>
+            <img id="iconServer" class="status" src="./assets/icons/connection.png" alt="Server"/>
+          </div>
+          <div class="bottles">
+            <div id="bottle7" class="bottle full"></div>
+            <div id="bottle6" class="bottle empty"></div>
+            <div id="bottle5" class="bottle full"></div>
+            <div id="bottle4" class="bottle full"></div>
+            <div id="bottle3" class="bottle full"></div>
+            <div id="bottle2" class="bottle empty"></div>
+            <div id="bottle1" class="bottle empty"></div>
+          </div>
+          <div class="waterTank" title="waterTank" id="waterTank">
+            <img src="./assets/waterTank.png" alt="waterTank icon"/>
+          </div>
+        </section>
+
+        <section class="page" aria-label="Settings">
+          <div class="title">Settings</div>
+          <div class="panel">
+            <button class="btn-xl" id="btnClean">
+              <img src="./assets/icons/clean.png" alt="self clean"/> Self-Clean
+            </button>
+            <div class="list">
+              <div class="row">
+                <div class="label"><img src="./assets/icons/volume.png" alt="volume"/>Volume</div>
+                <input id="rangeVolume" type="range" min="0" max="100" value="60" />
+                <div class="val" id="valVolume">60%</div>
+              </div>
+              <div class="row">
+                <div class="label"><img src="./assets/icons/snowflake.png" alt="fridge"/>Fridge</div>
+                <div class="switch on" id="swFridge" role="switch" aria-checked="true"></div>
+              </div>
+              <div class="row">
+                <div class="label"><img src="./assets/icons/thermometer.png" alt="temperature"/>Fridge Temperature</div>
+                <input id="rangeTemp" type="range" min="3" max="10" value="5" />
+                <div class="val" id="valTemp">5</div>
+              </div>
+              <div class="row">
+                <div class="label"><img src="./assets/icons/lightbulb.png" alt="led"/>LED</div>
+                <div class="switch on" id="swLed" role="switch" aria-checked="true"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="dots" aria-hidden="true">
+        <div class="dot active" id="dot0"></div>
+        <div class="dot" id="dot1"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // ====== 滑动/切页逻辑 ======
+    const carousel = document.getElementById('carousel');
+    const watch = document.getElementById('watch');
+    const dots = [document.getElementById('dot0'), document.getElementById('dot1')].filter(Boolean);
+    let page = 0; // 当前页 0/1
+    // const SWIPE_THRESHOLD = 300; // 触发切页阈值(px)
+    const INERTIA = 0.25; // 惯性权重
+
+    function go(p){
+      page = Math.max(0, Math.min(1, p));
+      const x = -page * watch.offsetWidth;
+      carousel.style.transition = 'transform .42s cubic-bezier(.22,.61,.36,1)';
+      carousel.style.transform = `translateX(${x}px)`;
+      dots.forEach((d,i)=> d && d.classList.toggle('active', i===page));
+    }
+
+    // 键盘左右键
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='ArrowRight') go(page+1);
+      if(e.key==='ArrowLeft')  go(page-1);
+    });
+
+    // 触控/鼠标拖拽
+// ====== 触控/鼠标拖拽（增强版，避免 slider 误触） ======
+// ====== 触控/鼠标拖拽（更稳：角度过滤 + 边缘起始 + 无惯性） ======
+  let startX = 0, startY = 0, atX = 0, dragging = false;
+  let swipeDisabled = false;     // 点到 slider 时禁用翻页
+  let swipeEligible = false;     // 满足角度/起始条件后才允许拖动翻页
+
+  // 可调参数
+  const SWIPE_THRESHOLD = 220;   // 需要横向位移达到 220px 才翻页（你可继续调大/调小）
+  const H_GUARD = 30;            // 横向位移超过 16px 才进入判定
+  const ANGLE_MAX_DEG = 25;      // 水平角度容差（越小越严格）
+  const EDGE_ONLY = true;        // 仅允许从左右边缘起手势
+  const EDGE_GUTTER = 60;        // 边缘区域宽度（px），EDGE_ONLY=true 时才生效
+
+  function isInsideSlider(target) {
+    return target && target.tagName === 'INPUT' && target.type === 'range';
+  }
+  function angleIsHorizontal(dx, dy) {
+    const ang = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+    return ang <= ANGLE_MAX_DEG;
+  }
+  function startedAtEdge(x, w) {
+    return (x <= EDGE_GUTTER) || (x >= w - EDGE_GUTTER);
+  }
+
+  function onDown(e){
+    const pt = e.touches ? e.touches[0] : e;
+    const hit = e.target; // 用事件的 target 更稳
+    if (isInsideSlider(hit)) { swipeDisabled = true; return; }
+  
+    swipeDisabled = false;
+
+    // 2) 边缘起手（可选）
+    const w = watch.offsetWidth;
+    if (EDGE_ONLY && !startedAtEdge(pt.clientX, w)) {
+      swipeEligible = false; // 中间区域不允许翻页
+    } else {
+      swipeEligible = null;  // 未决状态，等位移/角度达标再置为 true
+    }
+
+    dragging = true;
+    startX = atX = pt.clientX;
+    startY = pt.clientY;
+    carousel.style.transition = 'none';
+  }
+
+  function onMove(e) {
+    if (!dragging || swipeDisabled) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+
+    // 还没资格？先检查横向护栏与角度
+    if (swipeEligible !== true) {
+      if (Math.abs(dx) < H_GUARD) return;               // 横向位移不够
+      if (!angleIsHorizontal(dx, dy)) {                 // 角度不水平：放弃翻页
+        swipeEligible = false; 
+        return;
+      }
+      // 通过初筛
+      swipeEligible = true;
+    }
+
+    atX = pt.clientX;
+    const base = -page * watch.offsetWidth;
+    const offset = base + dx;
+    carousel.style.transform = `translateX(${offset}px)`;
+  }
+
+  function onUp() {
+    if (swipeDisabled) { swipeDisabled = false; return; }
+    if (!dragging) return;
+    dragging = false;
+    carousel.style.transition = '';
+
+    if (swipeEligible === true) {
+      const totalX = atX - startX;
+      if (totalX <= -SWIPE_THRESHOLD)      go(page + 1);
+      else if (totalX >= SWIPE_THRESHOLD)  go(page - 1);
+      else                                  go(page);  // 回弹
+    } else {
+      // 不符合条件，直接回弹
+      go(page);
+    }
+    swipeEligible = false;
+  }
+
+  // 事件绑定
+  watch.addEventListener('mousedown', onDown);
+  watch.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  watch.addEventListener('touchstart', onDown, { passive: true });
+  watch.addEventListener('touchmove',  onMove, { passive: true });
+  watch.addEventListener('touchend',   onUp);
+
+
+    // ====== 设置页控件（可选） ======
+    function paintRange(el){ if(!el) return; el.style.setProperty('--p', `${(el.value-el.min)/(el.max-el.min)*100}%`); }
+    const rngVol = document.getElementById('rangeVolume');
+    const valVol = document.getElementById('valVolume');
+    const rngTemp= document.getElementById('rangeTemp');
+    const valTemp= document.getElementById('valTemp');
+    [rngVol,rngTemp].forEach(r=>{ if(!r) return; paintRange(r); r.addEventListener('input',()=>{ paintRange(r); if(r===rngVol && valVol) valVol.textContent=r.value+'%'; if(r===rngTemp && valTemp) valTemp.textContent=r.value; }); });
+    if (rngTemp && valTemp) {
+      paintRange(rngTemp);
+      valTemp.textContent = `${rngTemp.value} °C`;
+
+      rngTemp.addEventListener("input", () => {
+        paintRange(rngTemp);
+        valTemp.textContent = `${rngTemp.value} °C`;
+      });
+    }
+
+
+    // 初始定位到第一页
+    go(0);
+
+/** === WebSocket 与串口桥 ===
+ *  收到两字节： [id, value]
+ *    id = 0x01..0x07 对应 1..7 号瓶
+ *    value = 0xFF → full；0x00 → empty
+ *  发送两字节：如 [0x02,0xFF] 表示"按钮被按"
+ */
+
+// WebSocket connection - moved outside IIFE
+// Auto-detect WebSocket URL based on current page location
+function getWebSocketURL() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  let hostname = window.location.hostname;
+  
+  // Fallback to localhost if hostname is empty or undefined
+  if (!hostname || hostname === '') {
+    hostname = 'localhost';
+  }
+  
+  const port = '8080';
+  return `${protocol}//${hostname}:${port}`;
+}
+
+const WS_URL = getWebSocketURL();
+let ws; // Declared in global scope
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 2000; // 2 seconds
+
+// Debug information
+console.log('🔍 WebSocket URL Debug Info:');
+console.log('   window.location.hostname:', window.location.hostname);
+console.log('   window.location.protocol:', window.location.protocol);
+console.log('   window.location.host:', window.location.host);
+console.log('   Constructed WS_URL:', WS_URL);
+
+function connect(){
+  console.log(`Attempting to connect to WebSocket at: ${WS_URL}`);
+  
+  // Validate WebSocket URL before attempting connection
+  if (!WS_URL || WS_URL.includes('://:') || WS_URL.includes('://undefined')) {
+    console.error('❌ Invalid WebSocket URL detected:', WS_URL);
+    console.error('   This usually happens when accessing the page via file:// protocol');
+    console.error('   Please access the page via HTTP server (http://localhost:3000)');
+    return;
+  }
+  
+  ws = new WebSocket(WS_URL);
+  ws.binaryType = 'arraybuffer';
+  
+  // Make ws globally available
+  window.ws = ws;
+  
+  ws.onopen = () => {
+    console.log("✅ WebSocket connected successfully");
+    reconnectAttempts = 0; // Reset reconnect counter on successful connection
+    // Send a simple startup notification to the device/server
+    try {
+      const startupBytes = new Uint8Array([0x0F, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xAA]);
+      ws.send(startupBytes);
+    } catch (e) {
+      console.warn('⚠️ Failed to send startup message:', e);
+    }
+  };
+  
+  ws.onmessage = (e) => {
+    console.log("📨 From device:", e.data);
+    
+    try {
+      // Try to parse as JSON first (structured messages)
+      const message = JSON.parse(e.data);
+      
+      if (message.type === 'bottle_status') {
+        updateBottleStatus(message.bottleId, message.status);
+        console.log(`🍾 Updated bottle ${message.bottleId} to ${message.status}`);
+      } else if (message.type === 'module_status') {
+        handleModuleStatus(message.module, message.status);
+        console.log(`🔧 Module ${message.module} status: ${message.status}`);
+      } 
+    } catch (error) {
+      // If not JSON, treat as raw hex data
+      console.log("📨 Raw hex data:", e.data);
+    }
+  };
+  
+  ws.onclose = (event) => {
+    console.log(`🔌 WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
+    
+    // Attempt to reconnect if not a normal closure
+    if (event.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++;
+      console.log(`🔄 Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in ${RECONNECT_DELAY}ms...`);
+      setTimeout(connect, RECONNECT_DELAY);
+    } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error("❌ Max reconnection attempts reached. Please check your connection.");
+    }
+  };
+  
+  ws.onerror = (error) => {
+    console.error("❌ WebSocket error:", error);
+    console.error("   Make sure the server is running and accessible");
+    console.error(`   Expected URL: ${WS_URL}`);
+  };
+}
+
+// Start connection
+connect();
+
+// === Status icons helpers ===
+function setWifiStatus(isOnline){
+  const el = document.getElementById('iconWifi');
+  if (!el) return;
+  el.classList.toggle('online', isOnline);
+}
+function setServerStatus(isOnline){
+  const el = document.getElementById('iconServer');
+  if (!el) return;
+  el.classList.toggle('online', isOnline);
+}
+
+// Function to update bottle status based on serial message
+function updateBottleStatus(bottleId, status) {
+  const bottleElement = document.getElementById(`bottle${bottleId}`);
+  if (!bottleElement) {
+    console.warn(`⚠️ Bottle element not found: bottle${bottleId}`);
+    return;
+  }
+  
+  // Remove existing classes
+  bottleElement.classList.remove('full', 'empty');
+  
+  // Add the appropriate class
+  bottleElement.classList.add(status);
+  
+  console.log(`🍾 Bottle ${bottleId} updated to ${status}`);
+}
+
+// Function to handle module status messages
+function handleModuleStatus(module, status) {
+  console.log(`🔧 Module ${module} status update: ${status}`);
+  
+  // You can add logic here to update UI based on module status
+  // For example, update LEDs, buttons, or indicators
+  
+  switch(module) {
+    case 'voice':
+      // Handle voice module status
+      console.log(`🎤 Voice module status: ${status}`);
+      break;
+    case 'clean':
+      // Handle clean module status
+      console.log(`🧹 Clean module status: ${status}`);
+      break;
+    case 'pouring':
+      // Handle pouring module status
+      console.log(`💧 Pouring module status: ${status}`);
+      
+      // Convert status to number if it's a string
+      const statusNum = typeof status === 'number' ? status : parseInt(status, 10);
+      
+      if (statusNum === 1) {
+        console.log('🎬 Playing pour start video...');
+        playVideo('start');
+      } else if (statusNum === 0) {
+        console.log('🎬 Playing pour finish video...');
+        playVideo('end');
+        // go(0) will be called automatically when video finishes (via onended handler)
+      }
+      break;
+    case "wifi":
+      // Handle wifi module status
+      console.log(`🌐 Wifi module status: ${status}`);
+      setWifiStatus(status === 1);
+      break;
+    case "server":
+      // Handle server module status
+      console.log(`🌐 Server module status: ${status}`);
+      setServerStatus(status === 1);
+      break;
+    default:
+      console.log(`❓ Unknown module: ${module}`);
+  }
+}
+
+    // 一个工具函数：向串口发送两字节
+function sendBytes(b0, b1){
+  if (!ws || ws.readyState !== 1) return console.warn('WS not ready');
+  const buf = new Uint8Array([b0, b1]);
+  ws.send(buf);
+}
+
+
+
+
+// === 指令常量（按你示例，可随时调整数值） ===
+const DEV = {
+  MACHINE: 0X00,
+  BOTTLE: 0X01,
+  FRIDGE: 0x02, // 冰箱
+  LED:    0x03, // ← 这里先占用 0x03（若你有既定值，改这里即可）
+  ALCOHOL: 0X04
+  
+};
+
+// 一些操作码（依据你示例把“电源开机=0x02”）
+const OP = {
+  FRIDGE_ON:  0x02,
+  FRIDGE_OFF: 0x00,
+  SELF_CLEAN: 0x01,
+  LED_OFF: 0X00,
+  LED_ON: 0X02
+};
+
+const STATUS = {
+  CLEAN_START : 0X01,
+  CLEAN_END : 0X00
+};
+
+// 统一组帧：0x0F, 0x00, device, 0x00, op, 0x00, value, 0xAA
+function buildFrame(device, op, value){
+  const v = value ?? 0x00;
+  return new Uint8Array([0x0F, 0x00, device & 0xFF, 0x00, op & 0xFF, 0x00, v & 0xFF, 0xAA]);
+}
+
+function sendFrame(device, op, value){
+  if (!ws || ws.readyState !== 1) {
+    console.warn('WS not ready');
+    return;
+  }
+  ws.send(buildFrame(device, op, value));
+}
+
+// ====== 控件绑定：分别发送不同的代码 ======
+
+// 自清洁：点击即发（设备= CLEAN，操作= TRIGGER，值= 0x01）
+document.getElementById('btnClean')?.addEventListener('click', ()=>{
+  sendFrame(DEV.MACHINE, OP.SELF_CLEAN, STATUS.CLEAN_START);
+});
+
+// Fridge 开关：开= POWER_ON，关= POWER_OFF；温度另发一帧（或你也可以一次帧里带温度）
+document.getElementById('swFridge')?.addEventListener('click', ()=>{
+  const swFridge = document.getElementById('swFridge');
+  const on = swFridge.classList.toggle('on');
+  swFridge.setAttribute('aria-checked', String(on));
+  const isFridgeOn = swFridge.classList.contains('on');
+  let t = Math.max(3, Math.min(10, parseInt(rngTemp.value || '3', 10)));
+  sendFrame(DEV.FRIDGE, isFridgeOn ? OP.FRIDGE_ON : OP.FRIDGE_OFF, t);
+});
+
+// LED 开关：用相同 POWER_ON/OFF 语义
+document.getElementById('swLed')?.addEventListener('click', ()=>{
+  const swLed = document.getElementById('swLed');
+  const on = swLed.classList.toggle('on');
+  swLed.setAttribute('aria-checked', String(on));
+  sendFrame(DEV.LED, on ? OP.LED_ON : OP.LED_OFF, 0x00);
+});
+
+// 音量：0~100，建议在 change 时发送（松手再发）
+document.getElementById('rangeVolume')?.addEventListener('change', ()=>{
+  let v = Math.max(0, Math.min(100, parseInt(rngVol.value || '0', 10)));
+  sendFrame(DEV.VOLUME, 0x00, v);
+});
+
+// 冰箱温度：3~10 ℃，单独一帧（或你也可以在开机那帧里同时带入）
+document.getElementById('rangeTemp')?.addEventListener('change', ()=>{
+  let t = Math.max(3, Math.min(10, parseInt(rngTemp.value || '3', 10)));
+  // 方式一（推荐清晰）：单独使用 TEMP 设备码：
+  const isFridgeOn = document.getElementById('swFridge')?.classList.contains('on');
+  sendFrame(DEV.FRIDGE, isFridgeOn ? OP.FRIDGE_ON : OP.FRIDGE_OFF, t);
+
+});
+
+
+function throttle(fn, gap=100){
+  let last=0, timer=null;
+  return function(...args){
+    const now=Date.now();
+    if(now-last>=gap){ last=now; fn.apply(this,args); }
+    else{ clearTimeout(timer); timer=setTimeout(()=>{ last=Date.now(); fn.apply(this,args); }, gap-(now-last)); }
+  }
+}
+
+function playVideo(msg) {
+  let videoId;
+  if (msg === "start") {
+    videoId = "pourStartVideo";
+  } else if (msg === "end") {
+    videoId = "pourFinishVideo";
+  } else {
+    // Default or error case
+    console.error(`Unknown msg: ${msg}`);
+    return;
+  }
+  const el = document.getElementById(videoId);
+  if (!el) {
+    console.error(`❌ Video element not found: ${videoId}`);
+    return;
+  }
+
+  // If playing finish video, stop the looping pouring video first
+  if (msg === "end") {
+    const pouringEl = document.getElementById("pouringVideo");
+    if (pouringEl) {
+      pouringEl.pause();
+      pouringEl.loop = false;
+      pouringEl.style.display = 'none';
+    }
+  }
+
+  // No need to set src since it's already in the HTML
+  
+  // Show the video element
+  el.style.display = 'block';
+  el.style.width = '100%';
+  el.style.height = '100%';
+  
+  // Remove existing event listeners to prevent duplicates
+  el.onended = null;
+  
+  // Add event listener to return to home page when video finishes
+  const pouringEl = document.getElementById("pouringVideo");
+
+  el.onended = function() {
+    // Video chaining logic for "pourStartVideo" and "pourFinish"
+    if (el.id === "pourStartVideo") {
+      if (pouringEl) {
+        pouringEl.style.display = 'block';
+        pouringEl.style.width = '100%';
+        pouringEl.style.height = '100%';
+        pouringEl.loop = true;
+        pouringEl.currentTime = 0;
+        pouringEl.play().catch(err => {
+          // Autoplay blocked, try muting
+        pouringEl.muted = true;
+        pouringEl.play().catch(() => {});
+        });
+        el.style.display = 'none';
+      }
+      // Do NOT execute the rest of this onended handler for pourStartVideo
+      return;
+    } else if (el.id === "pourFinishVideo") {
+      pouringEl.loop = false;
+      pouringEl.style.display = 'none';
+      console.log('📹 Video finished playing, returning to home page...');
+      // Hide the video
+      el.style.display = 'none';
+      go(0); // Go to page 0 (home page)
+      return; // Exit early to prevent falling through
+    }
+    // console.log('📹 Video finished playing, returning to home page...');
+    // // Hide the video
+    // el.style.display = 'none';
+    // go(0); // Go to page 0 (home page)
+  };
+  
+  // Add error handler in case video fails to load
+  el.onerror = function() {
+    console.error('❌ Video failed to load:', videoId);
+    console.log('📹 Returning to home page due to video error...');
+    // Hide the video
+    el.style.display = 'none';
+    go(0); // Go to home page even if video fails
+  };
+  
+  // 若需要声音：把 muted 关掉（见自动播放策略）
+  // el.muted = false;
+
+  const p = el.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(err => {
+      console.warn('Autoplay blocked:', err);
+      // 方案A：静音再试
+      el.muted = true;
+      el.play().catch(e2 => {
+        console.warn('Still blocked, waiting for user gesture…', e2);
+        // If still blocked, just return to home page
+        console.log('📹 Returning to home page...');
+        el.style.display = 'none';
+        go(0);
+      });
+    });
+  }
+}
+
+// === Stealth Exit: Long-press on title to show green screen ===
+(function() {
+  const titleEl = document.querySelector('.title');
+  if (!titleEl) return;
+  
+  let pressTimer = null;
+  const EXIT_PRESS_DURATION = 2000; // 3 seconds
+  
+  // Create green screen overlay (image)
+  const greenScreen = document.createElement('img');
+  greenScreen.id = 'greenScreen';
+  greenScreen.src = './assets/green2.png';
+  greenScreen.alt = 'Green Screen';
+  greenScreen.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:99999; display:none; background:#000;';
+  document.body.appendChild(greenScreen);
+  
+  function showGreenScreen() {
+    console.log('🟢 Green screen activated');
+    greenScreen.style.display = 'block';
+  }
+  
+  function startPressTimer(e) {
+    pressTimer = setTimeout(() => {
+      showGreenScreen();
+    }, EXIT_PRESS_DURATION);
+  }
+  
+  function cancelPressTimer() {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  }
+  
+  // Touch events (for touchscreens)
+  titleEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    startPressTimer(e);
+  }, { passive: false });
+  
+  titleEl.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    cancelPressTimer();
+  }, { passive: false });
+  
+  titleEl.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    cancelPressTimer();
+  }, { passive: false });
+  
+  // Mouse events (for mouse/trackpad)
+  titleEl.addEventListener('mousedown', (e) => {
+    startPressTimer(e);
+  });
+  
+  titleEl.addEventListener('mouseup', (e) => {
+    cancelPressTimer();
+  });
+  
+  titleEl.addEventListener('mouseleave', (e) => {
+    cancelPressTimer();
+  });
+})();
+
+  </script>
+
+<video id="pourStartVideo"
+       src="./assets/pour_start.mp4"
+       playsinline
+       preload="auto"
+       muted
+       style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#000; display:none;">
+</video>
+
+<video id="pouringVideo"
+       src="./assets/pouring.mp4"
+       playsinline
+       preload="auto"
+       muted
+       style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#000; display:none;">
+</video>
+
+<video id="pourFinishVideo"
+       src="./assets/pour_finish.mp4"
+       playsinline
+       preload="auto"
+       muted
+       style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#000; display:none;">
+</video>
+
+</body>
+</html>
+
+

@@ -477,6 +477,77 @@
     // 初始定位到第一页
     go(0);
 
+    // ====== 启动视频播放 ======
+    function playStartupVideo() {
+      const startupVideo = document.getElementById('startupVideo');
+      if (!startupVideo) {
+        console.warn('⚠️ Startup video element not found, retrying...');
+        // Retry after a short delay if element not found
+        setTimeout(playStartupVideo, 100);
+        return;
+      }
+
+      // Show the video
+      startupVideo.style.display = 'block';
+      
+      // Ensure video is ready to play
+      if (startupVideo.readyState >= 2) {
+        // Video is loaded enough to play
+        startPlayback();
+      } else {
+        // Wait for video to load
+        startupVideo.addEventListener('loadeddata', startPlayback, { once: true });
+        startupVideo.addEventListener('canplay', startPlayback, { once: true });
+        // Also try to load it explicitly
+        startupVideo.load();
+      }
+
+      function startPlayback() {
+        // Play the video
+        const playPromise = startupVideo.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('🎬 Startup video playing...');
+            })
+            .catch(err => {
+              console.warn('⚠️ Autoplay blocked, trying muted:', err);
+              // Video is already muted, but try again
+              startupVideo.muted = true;
+              startupVideo.play().catch(e => {
+                console.error('❌ Failed to play startup video:', e);
+                // If still fails, just go to home page
+                startupVideo.style.display = 'none';
+                go(0);
+              });
+            });
+        }
+      }
+
+      // When video ends, hide it and go to home page
+      startupVideo.onended = function() {
+        console.log('📹 Startup video finished, going to home page...');
+        startupVideo.style.display = 'none';
+        go(0); // Ensure we're on the home page
+      };
+
+      // Handle video errors
+      startupVideo.onerror = function() {
+        console.error('❌ Startup video failed to load');
+        startupVideo.style.display = 'none';
+        go(0); // Go to home page even if video fails
+      };
+    }
+
+    // Wait for DOM to be ready before playing startup video
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', playStartupVideo);
+    } else {
+      // DOM is already ready
+      playStartupVideo();
+    }
+
 /** === WebSocket 与串口桥 ===
  *  收到两字节： [id, value]
  *    id = 0x01..0x07 对应 1..7 号瓶
@@ -925,6 +996,15 @@ function playVideo(msg) {
 })();
 
   </script>
+
+<video id="startupVideo"
+       src="./assets/startup.mp4"
+       playsinline
+       preload="auto"
+       autoplay
+       muted
+       style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; background:#000; display:block;">
+</video>
 
 <video id="pourStartVideo"
        src="./assets/pour_start.mp4"
