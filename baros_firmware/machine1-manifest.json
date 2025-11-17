@@ -1,0 +1,13 @@
+{
+  "name": "Machine 1 BarOS Main",
+  "version": "2025.11.10.1",
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "ota": {
+        "md5": "98d301786cfa9ba901e27de501abe7a5",
+        "path": "firmware.ota.bin"
+      }
+    }
+  ]
+}
