@@ -6,7 +6,7 @@ set -e
 export NVM_DIR="/home/lei/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-APP_DIR="/home/lei/baros/bartender-ui"
+APP_DIR="/home/lei/Baros/bartender-ui"
 
 /usr/bin/python3 "$APP_DIR/update.py" >> "$APP_DIR/update.log" 2>&1 || true
 
@@ -30,7 +30,7 @@ chromium \
   --force-device-scale-factor=1 \
   --password-store=basic \
   --use-mock-keychain \
-  /home/lei/baros/bartender-ui/public/index.html \
+  /home/lei/Baros/bartender-ui/public/index.html \
   >/dev/null 2>&1 &
 
 # Start Node last (becomes main process)
