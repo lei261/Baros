@@ -65,7 +65,7 @@ def init_repo():
         if not checkout_res["success"]:
             return checkout_res
     
-    # return run_command(["git", "rev-parse", "HEAD"])
+    return run_command(["git", "rev-parse", "HEAD"])
 
 def check_update():
     local_hash = None
