@@ -65,7 +65,7 @@ def init_repo():
         if not checkout_res["success"]:
             return checkout_res
     
-    return run_command(["git", "rev-parse", "HEAD"])
+    # return run_command(["git", "rev-parse", "HEAD"])
 
 def check_update():
     local_hash = None
@@ -74,7 +74,7 @@ def check_update():
             local_hash = f.read().strip()
     
     try:
-        result = run_command(["git", "ls-remote", REPO_URL, BRANCH])
+        result = run_command(["git", "ls-remote", REPO_URL, BRANCH],timeout = 5)
         if not result["success"]:
             return {"success": False, "error": f"获取远程版本失败：{result['error']}"}
         remote_hash = result["output"].split()[0]
@@ -89,7 +89,7 @@ def check_update():
 
 def pull_update():
     print("拉取远程最新代码...")
-    pull_res = run_command(["git", "reset", "--hard", f"origin/{BRANCH}"], cwd=TARGET_DIR)
+    pull_res = run_command(["git", "reset", "--hard", f"origin/{BRANCH}"], cwd=TARGET_DIR,timeout = 10)
     if not pull_res["success"]:
         return pull_res
     
