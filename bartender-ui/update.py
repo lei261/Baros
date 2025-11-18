@@ -37,12 +37,12 @@ def init_repo():
     
     # 如果还未初始化 Git 仓库，则进行稀疏检出配置
     if not os.path.exists(git_dir):
+        print("克隆仓库（启用 sparse-checkout）...")
         # 确保目标目录为空（Git 要求目标目录为空才能 clone）
         files = os.listdir(TARGET_DIR)
         if len(files) > 0:
             return {"success": False, "error": f"目标目录 {TARGET_DIR} 非空，请先手动清理后再运行。"}
 
-        print("克隆仓库（启用 sparse-checkout）...")
         parent_dir = os.path.dirname(os.path.abspath(TARGET_DIR.rstrip("/")))
         target_name = os.path.basename(os.path.abspath(TARGET_DIR.rstrip("/")))
 
@@ -130,4 +130,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
