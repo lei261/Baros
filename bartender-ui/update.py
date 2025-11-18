@@ -89,7 +89,7 @@ def check_update():
 
 def pull_update():
     print("拉取远程最新代码...")
-    pull_res = run_command(["git", "pull", "origin", BRANCH, "--force"], cwd=TARGET_DIR)
+    pull_res = run_command(["git", "pull", "origin", BRANCH, "--force"], cwd=TARGET_DIR,timeout=10)
     if not pull_res["success"]:
         return pull_res
     
@@ -128,4 +128,5 @@ def main():
     print("===== 更新流程结束 =====")
 
 if __name__ == "__main__":
+
     main()
