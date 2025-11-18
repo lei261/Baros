@@ -8,7 +8,7 @@ export NVM_DIR="/home/lei/.nvm"
 
 APP_DIR="/home/lei/Baros/bartender-ui"
 
-/usr/bin/python3 "$APP_DIR/update.py" >> "$APP_DIR/update.log" 2>&1 || true
+/usr/bin/python3 "$APP_DIR/update.py" 
 
 
 cd "$APP_DIR"
