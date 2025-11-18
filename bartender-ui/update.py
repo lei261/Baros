@@ -7,9 +7,9 @@ import requests
 
 # ==================== 配置参数 ====================
 REPO_URL = "https://github.com/lei261/Baros.git"
-TARGET_DIR = "/home/lei/baros/"  # 仓库克隆目录（作为 Git 仓库根目录）
+TARGET_DIR = "/home/lei/Baros/"  # 仓库克隆目录（作为 Git 仓库根目录）
 BRANCH = "main"
-LAST_COMMIT_FILE = "/home/lei/baros/.last_commit"
+LAST_COMMIT_FILE = "/home/lei/Baros/.last_commit"
 REPO_SUB_DIR = "bartender-ui"  # 需要稀疏检出的子目录
 WORK_DIR = os.path.join(TARGET_DIR, REPO_SUB_DIR)  # 前端项目所在目录（npm 在这里执行）
 # =================================================
@@ -130,3 +130,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
