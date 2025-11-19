@@ -12,22 +12,22 @@ esphome:
   on_boot:
     - priority: -100.0
       then:
-        - binary_sensor.template.publish:
-            id: pouring
-            state: false
-        - light.turn_on: led_rgb1
-    # 自动检查更新 - 等待WiFi连接后检查
-    - priority: 100.0
-      then:
         - logger.log: "等待WiFi连接..."
         - wait_until:
             condition:
-              lambda: 'return id(WIFI_STATUS);'
-            timeout: 30s
-        - delay: 5s  # 等待网络稳定
+              wifi.connected:
+        - delay: 5s
         - logger.log: "开始检查固件更新..."
         - lambda: |-
             id(fw_update).check();
+        - delay: 3s
+        - lambda: |-
+            if (id(fw_update).state == esphome::update::UPDATE_STATE_AVAILABLE) {
+              ESP_LOGI("fw_update", "检测到新固件，自动安装...");
+              id(fw_update).perform(false);
+            } else {
+              ESP_LOGI("fw_update", "未检测到新固件，跳过自动安装");
+            }
 packages:
   - !include common_main.yaml
 update: 
@@ -359,10 +359,14 @@ button:
         - logger.log: "开始检查更新..."
         - lambda: |-
             id(fw_update).check();
-        - delay: 3s  # 等待检查完成
-        - logger.log: "检查完成，如有更新将自动安装..."
+        - delay: 3s
         - lambda: |-
-            id(fw_update).perform(true);
+            if (id(fw_update).state == esphome::update::UPDATE_STATE_AVAILABLE) {
+              ESP_LOGI("fw_update", "检测到新固件，开始安装");
+              id(fw_update).perform(false);
+            } else {
+              ESP_LOGI("fw_update", "没有可用更新，结束");
+            }
 
 # =============================================================================
 # 开关控制配置
