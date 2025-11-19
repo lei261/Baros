@@ -14,7 +14,11 @@ REPO_SUB_DIR = "bartender-ui"  # 需要稀疏检出的子目录
 WORK_DIR = os.path.join(TARGET_DIR, REPO_SUB_DIR)  # 前端项目所在目录（npm 在这里执行）
 # =================================================
 
-def run_command(command, cwd=None, timeout=None):
+# --- replace your run_command with this ---
+def run_command(command, cwd=None, timeout=30):
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"    # never prompt for username/password
+    env["GIT_ASKPASS"] = "echo"         # dummy askpass for safety
     try:
         result = subprocess.run(
             command,
@@ -23,34 +27,32 @@ def run_command(command, cwd=None, timeout=None):
             stderr=subprocess.PIPE,
             text=True,
             check=True,
-            timeout=timeout
+            timeout=timeout,
+            env=env
         )
         return {"success": True, "output": result.stdout.strip()}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"命令超时：{' '.join(command)}"}
     except subprocess.CalledProcessError as e:
-        return {"success": False, "error": e.stderr.strip() or str(e)}
+        return {"success": False, "error": (e.stderr or str(e)).strip()}
 
 def init_repo():
     Path(TARGET_DIR).mkdir(parents=True, exist_ok=True)
     git_dir = os.path.join(TARGET_DIR, ".git")
-    
-    # 如果还未初始化 Git 仓库，则进行稀疏检出配置
+
     if not os.path.exists(git_dir):
         print("克隆仓库（启用 sparse-checkout）...")
-        # 确保目标目录为空（Git 要求目标目录为空才能 clone）
         files = os.listdir(TARGET_DIR)
-        if len(files) > 0:
-            return {"success": False, "error": f"目标目录 {TARGET_DIR} 非空，请先手动清理后再运行。"}
+        if files:
+            return {"success": False, "error": f"目标目录 {TARGET_DIR} 非空，请先清理。"}
 
         parent_dir = os.path.dirname(os.path.abspath(TARGET_DIR.rstrip("/")))
         target_name = os.path.basename(os.path.abspath(TARGET_DIR.rstrip("/")))
 
-        # 使用稀疏克隆，只获取必要对象
+        # allow slower networks
         clone_res = run_command(
             ["git", "clone", "--filter=blob:none", "--sparse", REPO_URL, target_name],
-            cwd=parent_dir,
-            timeout=10
+            cwd=parent_dir, timeout=120
         )
         if not clone_res["success"]:
             return clone_res
@@ -64,8 +66,9 @@ def init_repo():
         checkout_res = run_command(["git", "checkout", BRANCH], cwd=TARGET_DIR)
         if not checkout_res["success"]:
             return checkout_res
-    
-    return run_command(["git", "rev-parse", "HEAD"])
+
+    # ensure we know current HEAD
+    return run_command(["git", "rev-parse", "HEAD"], cwd=TARGET_DIR)
 
 def check_update():
     local_hash = None
@@ -89,11 +92,15 @@ def check_update():
 
 def pull_update():
     print("拉取远程最新代码...")
+    fetch_res = run_command(["git", "fetch", "--prune", "origin", BRANCH], cwd=TARGET_DIR)
+    if not fetch_res["success"]:
+        return fetch_res
+
     pull_res = run_command(["git", "reset", "--hard", f"origin/{BRANCH}"], cwd=TARGET_DIR)
     if not pull_res["success"]:
         return pull_res
-    
-    rev_res = run_command(["git", "rev-parse", "HEAD"])
+
+    rev_res = run_command(["git", "rev-parse", "HEAD"], cwd=TARGET_DIR)
     if rev_res["success"]:
         with open(LAST_COMMIT_FILE, "w") as f:
             f.write(rev_res["output"])

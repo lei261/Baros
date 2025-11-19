@@ -1,6 +1,6 @@
 #!/bin/bash
 # /home/lei/Desktop/startup.sh
-set -e
+# set -e
 
 # Load nvm (if you use it) so npm/node are in PATH
 export NVM_DIR="/home/lei/.nvm"
@@ -8,7 +8,8 @@ export NVM_DIR="/home/lei/.nvm"
 
 APP_DIR="/home/lei/Baros/bartender-ui"
 
-/usr/bin/python3 "$APP_DIR/update.py" 
+timeout 30s /usr/bin/python3 "$APP_DIR/update.py" >> "$APP_DIR/update.log" 2>&1 || \
+  echo "$(date) update.py timed out or failed" >> "$APP_DIR/update.log"
 
 
 cd "$APP_DIR"
