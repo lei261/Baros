@@ -1,11 +1,11 @@
 {
   "name": "Machine 2 BarOS Main",
-  "version": "2025.11.10.1",
+  "version": "2025.11.10.2",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "ota": {
-        "md5": "d1aaa0d382d30540e5de0616628ad031",
+        "md5": "4c85e66903dc79319a5f287792c4da59",
         "path": "https://raw.githubusercontent.com/lei261/Baros/main/baros_firmware/baros2-test.ota.bin"
       }
     }
