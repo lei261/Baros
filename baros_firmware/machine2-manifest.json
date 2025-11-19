@@ -6,9 +6,10 @@
       "chipFamily": "ESP32-S3",
       "ota": {
         "md5": "PLACEHOLDER_MD5_HERE",
-        "path": "https://raw.githubusercontent.com/lei261/baros_firmware/main/baros2-test.ota.bin"
+        "path": "https://raw.githubusercontent.com/lei261/main/baros_firmware/baros2-test.ota.bin"
       }
     }
   ]
 }
+
 
