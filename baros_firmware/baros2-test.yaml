@@ -8,7 +8,7 @@ esphome:
   name: baros
   project:
     name: lei261.baros_main
-    version: "2025.11.10.2"
+    version: "2025.11.10.4"
   on_boot:
     - priority: -100.0
       then:
