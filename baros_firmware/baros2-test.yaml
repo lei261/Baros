@@ -828,7 +828,7 @@ script:
               ESP_LOGW("pour", "无效的水箱号: %d", tank_num);
               break;
           }
-      - delay: 5s
+      - delay: 10s
       # - wait_until:
       #     condition:
       #       for:
