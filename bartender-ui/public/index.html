@@ -349,6 +349,20 @@
     </div>
   </div>
   <script>
+    function getQueryParam (name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+  
+    const hw = getQueryParam('hw') || 'v1';   // default
+    if (hw === 'v2') {
+    const container = document.getElementById('bottle-container');
+    const bottles = Array.from(container.children);
+  
+    // Reverse the DOM order
+    bottles.reverse().forEach(b => container.appendChild(b));
+  }
+
     // ====== 滑动/切页逻辑 ======
     const carousel = document.getElementById('carousel');
     const watch = document.getElementById('watch');
