@@ -40,6 +40,10 @@
       display:flex;
       justify-content:space-between;
       gap:1.6%;
+      flex-direction: row;
+    }
+    .bottles.reverse {
+        flex-direction: row-reverse;
     }
 
     /* 可选：让瓶子底部在同一基线、视觉更整齐 */
@@ -355,13 +359,9 @@
     }
   
     const hw = getQueryParam('hw') || 'v1';   // default
-    if (hw === 'v2') {
-    const container = document.getElementById('bottle-container');
-    const bottles = Array.from(container.children);
-  
-    // Reverse the DOM order
-    bottles.reverse().forEach(b => container.appendChild(b));
-  }
+    if (hw === "v2") {
+      document.getElementById("bottle-container").classList.add("reverse");
+    }
 
     // ====== 滑动/切页逻辑 ======
     const carousel = document.getElementById('carousel');
