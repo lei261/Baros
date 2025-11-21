@@ -1039,7 +1039,7 @@ script:
       - script.execute:
           id: set_water_pump_with_o3
           enable: true
-          speed_percent: 90.0
+          speed_percent: 100.0
       
       - wait_until:
           condition:
@@ -1060,7 +1060,7 @@ script:
       - script.execute:
           id: set_water_pump_with_o3
           enable: true
-          speed_percent: 75.0
+          speed_percent: 100.0
       - delay: 10.0s
 
       - script.execute:
@@ -1081,7 +1081,7 @@ script:
       - script.execute:
           id: set_water_pump_with_o3
           enable: true
-          speed_percent: 80.0
+          speed_percent: 100.0
       - delay: 5.0s
 
       - script.execute:
@@ -1098,7 +1098,7 @@ script:
       - script.execute:
           id: set_water_pump_with_o3
           enable: true
-          speed_percent: 70.0
+          speed_percent: 100.0
       - delay: 10.0s
 
       - script.execute:
@@ -1207,5 +1207,4 @@ script:
             then:
               - logger.log: "Request failed!"
               # - button.press: restart_button
-
 
