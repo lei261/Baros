@@ -441,7 +441,7 @@ switch:
     id: pump1_reverse
     
   - platform: gpio
-    pin: 42
+    pin: 41
     name: Pump2_Reverse 泵反转
     id: pump2_reverse
 
@@ -562,7 +562,7 @@ output:
   - platform: ledc
     id: pump2_output
     frequency: 800Hz
-    pin: 41
+    pin: 42
 
   - platform: ledc
     id: pump3_output
@@ -1207,4 +1207,5 @@ script:
             then:
               - logger.log: "Request failed!"
               # - button.press: restart_button
+
 
