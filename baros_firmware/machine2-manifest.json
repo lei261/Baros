@@ -5,7 +5,7 @@
     {
       "chipFamily": "ESP32-S3",
       "ota": {
-        "md5": "f40ca3075adc85721416f027ab95b66c",
+        "md5": "be4398da568c33e4ea91b1e0d37d50d4",
         "path": "https://raw.githubusercontent.com/lei261/Baros/main/baros_firmware/baros2-test.ota.bin"
       }
     }
