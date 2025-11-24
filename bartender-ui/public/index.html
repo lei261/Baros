@@ -360,7 +360,10 @@
   
     const hw = getQueryParam('hw') || 'v1';   // default
     if (hw === "v2") {
-      document.getElementById("bottle-container").classList.add("reverse");
+      console.log('Detected hardware version v2, applying bottle reverse layout.');
+      document.querySelector(".bottles").classList.add("reverse");
+    } else {
+      console.log('Detected hardware version v1.');
     }
 
     // ====== 滑动/切页逻辑 ======
