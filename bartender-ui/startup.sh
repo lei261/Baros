@@ -2,46 +2,54 @@
 # /home/lei/Desktop/startup.sh
 # set -e
 
+HW_VERSION="v2"
+
+
+
 # Load nvm (if you use it) so npm/node are in PATH
 export NVM_DIR="/home/lei/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-APP_DIR="/home/lei/Baros/bartender-ui"
 
+
+APP_DIR="/home/lei/Baros/bartender-ui"
 try_update() {
-  echo "$(date) [update] starting" >> "$LOG"
+  echo "$(date) [update] starting"
 
   # Try up to 2 times
-  for i in 1 2; do
-    echo "$(date) [update] attempt $i: testing github.com..." >> "$LOG"
+  for i in 1 2 ; do
+    echo "$(date) [update] attempt $i: testing github.com..."
 
     # Quick connectivity probe (5s max)
     if curl -s --head --connect-timeout 5 --max-time 8 https://github.com >/dev/null 2>&1; then
-      echo "$(date) [update] github reachable, running update.py" >> "$LOG"
+      echo "$(date) [update] github reachable, running update.py" 
 
       # Run your update script with a hard cap (e.g. 60s)
-      timeout 10s /usr/bin/python3 "$APP_DIR/update.py" >> "$LOG" 2>&1 && {
-        echo "$(date) [update] update.py succeeded" >> "$LOG"
+      timeout 14s /usr/bin/python3 "$APP_DIR/update.py"  2>&1 && {
+        echo "$(date) [update] update.py succeeded" 
         return 0
       }
-      echo "$(date) [update] update.py failed on attempt $i" >> "$LOG"
+      echo "$(date) [update] update.py failed on attempt $i" 
     else
-      echo "$(date) [update] github unreachable on attempt $i" >> "$LOG"
+      echo "$(date) [update] github unreachable on attempt $i"
     fi
 
     sleep 2
   done
 
-  echo "$(date) [update] giving up for this boot" >> "$LOG"
+  echo "$(date) [update] giving up for this boot" 
   return 1
 }
 
 # Option A: run and wait, but never hang forever
-try_update || echo "$(date) [update] skipped (network or error)" >> "$LOG"
+try_update || echo "$(date) [update] skipped (network or error)" 
 
 
 cd "$APP_DIR"
 npm i express ws serialport >> "$APP_DIR/npm-install.log" 2>&1 || true
+
+
+URL="file://$APP_DIR/public/index.html?hw=${HW_VERSION}"
 
 # Launch Chromium (non-blocking) with your flags and the FULL path:
 chromium \
@@ -59,7 +67,7 @@ chromium \
   --force-device-scale-factor=1 \
   --password-store=basic \
   --use-mock-keychain \
-  /home/lei/Baros/bartender-ui/public/index.html \
+  "$URL" \
   >/dev/null 2>&1 &
 
 # Start Node last (becomes main process)
