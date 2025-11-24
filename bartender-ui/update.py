@@ -13,12 +13,27 @@ LAST_COMMIT_FILE = "/home/lei/Baros/.last_commit"
 REPO_SUB_DIR = "bartender-ui"  # 需要稀疏检出的子目录
 WORK_DIR = os.path.join(TARGET_DIR, REPO_SUB_DIR)  # 前端项目所在目录（npm 在这里执行）
 # =================================================
+GIT_PROXY = "socks5h://127.0.0.1:1080"   # <--- change port if needed
+GIT_SOCKS_HOST = "127.0.0.1"
+GIT_SOCKS_PORT = 1080
 
 # --- replace your run_command with this ---
 def run_command(command, cwd=None, timeout=30):
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"    # never prompt for username/password
     env["GIT_ASKPASS"] = "echo"         # dummy askpass for safety
+    if command and command[0] == "git":
+        # For HTTPS remotes (Git uses libcurl → respects these)
+        env["https_proxy"] = GIT_PROXY
+        env["http_proxy"] = GIT_PROXY
+        env["ALL_PROXY"] = GIT_PROXY
+
+        # For SSH remotes (git@github.com:... style)
+        # Uses netcat to send SSH through socks5
+        env["GIT_SSH_COMMAND"] = (
+            f"ssh -o ProxyCommand='nc -x {GIT_SOCKS_HOST}:{GIT_SOCKS_PORT} %h %p'"
+    )
+
     try:
         result = subprocess.run(
             command,
