@@ -8,7 +8,7 @@ esphome:
   name: baros
   project:
     name: lei261.baros_main
-    version: "2025.11.10.2"
+    version: "2025.11.10.4"
   on_boot:
     - priority: -100.0
       then:
@@ -226,6 +226,8 @@ packet_transport:
   - platform: uart
     uart_id: uart_com
     update_interval: 1s
+    sensors:
+      - water_pump_speed_cmd
     binary_sensors:
       - pouring
       - valve1_control
@@ -249,6 +251,13 @@ uart:
 # 传感器配置
 # =============================================================================
 sensor:
+  - platform: template
+    id: water_pump_speed_cmd
+    internal: true
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never
+
   # 水泵电压监测
   - platform: adc
     name: Water Pump Voltage
@@ -432,7 +441,7 @@ switch:
     id: pump1_reverse
     
   - platform: gpio
-    pin: 42
+    pin: 41
     name: Pump2_Reverse 泵反转
     id: pump2_reverse
 
@@ -553,7 +562,7 @@ output:
   - platform: ledc
     id: pump2_output
     frequency: 800Hz
-    pin: 41
+    pin: 42
 
   - platform: ledc
     id: pump3_output
@@ -629,6 +638,23 @@ fan:
 # 脚本配置 (核心业务逻辑)
 # =============================================================================
 script:
+  - id: set_water_pump_with_o3
+    parameters:
+      enable: bool
+      speed_percent: float
+    mode: restart
+    then:
+      - lambda: |-
+          float target = enable ? speed_percent : 0.0f;
+          if (target < 0.0f) target = 0.0f;
+          if (target > 100.0f) target = 100.0f;
+          id(water_pump_speed_cmd).publish_state(target);
+      - binary_sensor.template.publish:
+          id: water_pump_control
+          state: !lambda 'return enable;'
+      - binary_sensor.template.publish:
+          id: o3_control
+          state: !lambda 'return enable;'
   # 统一倒酒函数 (支持8个阀门，可调时间)
   - id: pour_liquid
     parameters:
@@ -828,7 +854,7 @@ script:
               ESP_LOGW("pour", "无效的水箱号: %d", tank_num);
               break;
           }
-      - delay: 5s
+      - delay: 10s
       # - wait_until:
       #     condition:
       #       for:
@@ -1010,24 +1036,20 @@ script:
           id: valve1_control
           state: true
       - delay: 0.5s
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: true
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: true
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: true
+          speed_percent: 100.0
       
       - wait_until:
           condition:
             - binary_sensor.is_on: liquid1
           timeout: 30s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: false
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: false
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: false
+          speed_percent: 0.0
       - delay: 0.5s
 
       - binary_sensor.template.publish:
@@ -1035,20 +1057,16 @@ script:
           state: false
       - delay: 0.5s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: true
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: true
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: true
+          speed_percent: 100.0
       - delay: 10.0s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: false
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: false
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: false
+          speed_percent: 0.0
       - delay: 0.5s
 
       # 第二步：开阀二和阀一，0.5s后开水泵，等到液位传感器on后关水泵关阀一，继续开水泵等到液位传感器off后关泵关阀
@@ -1060,23 +1078,16 @@ script:
           state: true
       - delay: 0.5s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: true
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: true
-      - wait_until:
-          condition:
-            - binary_sensor.is_on: liquid1
-          timeout: 30s
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: true
+          speed_percent: 100.0
+      - delay: 5.0s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: false
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: false
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: false
+          speed_percent: 0.0
       - delay: 0.5s
 
       - binary_sensor.template.publish:
@@ -1084,20 +1095,16 @@ script:
           state: false
       - delay: 0.5s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: true
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: true
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: true
+          speed_percent: 100.0
       - delay: 10.0s
 
-      - binary_sensor.template.publish:
-          id: water_pump_control
-          state: false
-      - binary_sensor.template.publish:
-          id: o3_control
-          state: false
+      - script.execute:
+          id: set_water_pump_with_o3
+          enable: false
+          speed_percent: 0.0
       - delay: 0.5s
       - binary_sensor.template.publish:
           id: valve2_control

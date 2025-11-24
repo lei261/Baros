@@ -8,8 +8,36 @@ export NVM_DIR="/home/lei/.nvm"
 
 APP_DIR="/home/lei/Baros/bartender-ui"
 
-timeout 30s /usr/bin/python3 "$APP_DIR/update.py" >> "$APP_DIR/update.log" 2>&1 || \
-  echo "$(date) update.py timed out or failed" >> "$APP_DIR/update.log"
+try_update() {
+  echo "$(date) [update] starting" >> "$LOG"
+
+  # Try up to 2 times
+  for i in 1 2; do
+    echo "$(date) [update] attempt $i: testing github.com..." >> "$LOG"
+
+    # Quick connectivity probe (5s max)
+    if curl -s --head --connect-timeout 5 --max-time 8 https://github.com >/dev/null 2>&1; then
+      echo "$(date) [update] github reachable, running update.py" >> "$LOG"
+
+      # Run your update script with a hard cap (e.g. 60s)
+      timeout 10s /usr/bin/python3 "$APP_DIR/update.py" >> "$LOG" 2>&1 && {
+        echo "$(date) [update] update.py succeeded" >> "$LOG"
+        return 0
+      }
+      echo "$(date) [update] update.py failed on attempt $i" >> "$LOG"
+    else
+      echo "$(date) [update] github unreachable on attempt $i" >> "$LOG"
+    fi
+
+    sleep 2
+  done
+
+  echo "$(date) [update] giving up for this boot" >> "$LOG"
+  return 1
+}
+
+# Option A: run and wait, but never hang forever
+try_update || echo "$(date) [update] skipped (network or error)" >> "$LOG"
 
 
 cd "$APP_DIR"

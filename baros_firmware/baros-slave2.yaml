@@ -59,6 +59,9 @@ globals:
   - id: liquid_time_threshold
     type: unsigned long
     initial_value: '1000'  # 默认1秒阈值，可调整
+  - id: water_pump_speed_percent
+    type: float
+    initial_value: '80.0'
 wifi:  
   networks:
     - ssid: "Latent Spice"
@@ -128,6 +131,27 @@ packet_transport:
       - clean_system_slave
       - pi_started_slave
 
+sensor:
+  - platform: packet_transport
+    provider: baros
+    remote_id: water_pump_speed_cmd
+    id: water_pump_speed_receive
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            float speed = x;
+            if (speed < 0.0f) speed = 0.0f;
+            if (speed > 100.0f) speed = 100.0f;
+            id(water_pump_speed_percent) = speed;
+            if (speed <= 0.0f) {
+              id(water_pump_pwm_fan).turn_off();
+            } else if (id(water_pump_pwm_fan).state) {
+              auto call = id(water_pump_pwm_fan).turn_on();
+              call.set_speed(speed);
+              call.perform();
+            }
+
 switch:
   - platform: gpio
     pin: 4
@@ -135,10 +159,15 @@ switch:
     restore_mode: ALWAYS_ON
     # internal: true
 
-  - platform: gpio
-    pin: 5
+  - platform: template
     name: pump 水泵
     id: water_pump_slave_switch
+    lambda: |-
+      return id(water_pump_pwm_fan).state;
+    turn_on_action:
+      - fan.turn_on: water_pump_pwm_fan
+    turn_off_action:
+      - fan.turn_off: water_pump_pwm_fan
 
   - platform: gpio
     pin: 48
@@ -166,6 +195,10 @@ switch:
 
 output: 
   - platform: ledc
+    id: water_pump_pwm_output
+    frequency: 1000 Hz
+    pin: 5
+  - platform: ledc
     id: fridge_fan1_output
     frequency: 5kHz
     pin: 42
@@ -179,6 +212,11 @@ output:
     pin: 40
 
 fan:
+  - platform: speed
+    output: water_pump_pwm_output
+    name: 水泵PWM
+    id: water_pump_pwm_fan
+    restore_mode: RESTORE_DEFAULT_OFF
   - platform: speed
     output: fridge_fan1_output
     name: 冰箱风扇1
@@ -221,11 +259,11 @@ binary_sensor:
   - platform: template
     id: water_pump_slave_sensor
     lambda: |-
-      return id(water_pump_slave_switch).state;
+      return id(water_pump_pwm_fan).state;
     on_press:
-      - switch.turn_on: water_pump_slave_switch
+      - fan.turn_on: water_pump_pwm_fan
     on_release:
-      - switch.turn_off: water_pump_slave_switch
+      - fan.turn_off: water_pump_pwm_fan
 
   - platform: template
     id: valve1_slave_sensor
@@ -272,9 +310,17 @@ binary_sensor:
     id: water_pump_control_receive
     internal: true
     on_press:
-      - switch.turn_on: water_pump_slave_switch
+      - lambda: |-
+          float speed = id(water_pump_speed_percent);
+          if (speed <= 0.0f)
+            speed = 80.0f;
+          if (speed > 100.0f)
+            speed = 100.0f;
+          auto call = id(water_pump_pwm_fan).turn_on();
+          call.set_speed(speed);
+          call.perform();
     on_release:
-      - switch.turn_off: water_pump_slave_switch
+      - fan.turn_off: water_pump_pwm_fan
 
   - platform: packet_transport
     provider: baros

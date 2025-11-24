@@ -1,230 +1,198 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import pkg from 'serialport';
-const { SerialPort } = pkg;
+import { SerialPort } from "serialport";
 import os from "os";
-import path from "path";
-import { fileURLToPath } from 'url';
 
-// 定义__dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 自动判断系统类型
+const platform = os.platform(); // 'linux', 'win32', 'darwin' ...
+let serialPath = "/dev/serial0"; // 默认树莓派串口路径
 
-// ==================== 基础配置 ====================
-let serialPath = "";
-let serialPortList = [];
-const HTTP_PORT = 3000;
-const WS_PORT = 8080;
-const PUBLIC_DIR = path.join(__dirname, "public");
+if (platform === "win32") {
+  serialPath = "COM3"; // Windows 下使用 COM3
+}
 
-// ==================== 全局状态 ====================
-let serial = null;
+console.log(`Detected platform: ${platform}`);
+console.log(`Using serial port: ${serialPath}`);
 
-// ==================== 初始化HTTP服务器 ====================
+// Display network interfaces for debugging
+console.log("\n🌐 Network Interfaces:");
+const interfaces = os.networkInterfaces();
+Object.keys(interfaces).forEach(name => {
+  interfaces[name].forEach(iface => {
+    if (iface.family === 'IPv4' && !iface.internal) {
+      console.log(`   ${name}: ${iface.address}`);
+    }
+  });
+});
+console.log("");
+
+// 打开串口
+const serial = new SerialPort({
+  path: serialPath,
+  baudRate: 9600,
+});
+
+serial.on("open", () => console.log("✅ Serial port opened:", serialPath));
+serial.on("error", (err) => console.error("❌ Serial error:", err.message));
+
+// 启动 HTTP 服务器
 const app = express();
-app.use(express.static(PUBLIC_DIR));
-
-// 接口：查询可用串口
-app.get("/serial/ports", async (req, res) => {
-  try {
-    const ports = await SerialPort.list();
-    serialPortList = ports.map(port => ({
-      path: port.path,
-      manufacturer: port.manufacturer || "未知设备"
-    }));
-    res.json(serialPortList);
-  } catch (err) {
-    res.status(500).json({ error: `查询串口失败：${err.message}` });
-  }
+app.use(express.static("public"));
+app.listen(3000, "0.0.0.0", () => {
+  console.log("🌐 HTTP running at http://0.0.0.0:3000");
+  console.log("   Also accessible at http://localhost:3000");
+  console.log("   And http://[your-pi-ip]:3000");
 });
 
-const httpServer = app.listen(HTTP_PORT, "0.0.0.0", () => {
-  console.log(`🌐 网页服务启动：`);
-  console.log(`   本地访问：http://localhost:${HTTP_PORT}`);
-  logNetworkInterfaces();
+// 启动 WebSocket 服务器
+const wss = new WebSocketServer({ 
+  port: 8080,
+  host: "0.0.0.0"  // Bind to all interfaces
+});
+console.log("🔌 WebSocket listening on ws://0.0.0.0:8080");
+console.log("   Also accessible at ws://localhost:8080");
+console.log("   And ws://[your-pi-ip]:8080");
+
+// WebSocket server error handling
+wss.on("error", (error) => {
+  console.error("❌ WebSocket server error:", error.message);
+  console.error("   Details:", error);
 });
 
-// ==================== WebSocket配置 ====================
-const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
-console.log(`🔌 WebSocket服务启动：ws://localhost:${WS_PORT}`);
+wss.on("connection", (ws, req) => {
+  const clientIP = req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  console.log(`✅ WebSocket connected from ${clientIP}`);
+  console.log(`   User-Agent: ${userAgent}`);
+  console.log(`   Headers:`, req.headers);
 
-// 广播消息到所有客户端
-const broadcast = (message) => {
-  wss.clients.forEach(client => {
-    if (client.readyState === client.OPEN) {
-      client.send(JSON.stringify(message));
-    }
-  });
-};
-
-// ==================== 串口功能实现 ====================
-async function initSerial(portPath) {
-  if (serial && serial.isOpen) {
-    await serial.close();
-    console.log(`🔌 已关闭原有串口连接`);
-  }
-
-  serial = new SerialPort({
-    path: portPath,
-    baudRate: 9600,
-    autoOpen: false
+  // WebSocket connection error handling
+  ws.on("error", (error) => {
+    console.error("❌ WebSocket connection error:", error.message);
+    console.error("   Client IP:", clientIP);
+    console.error("   Error details:", error);
   });
 
-  serial.open((err) => {
-    if (err) {
-      console.error(`❌ 串口连接失败（${portPath}）：${err.message}`);
-      broadcast({
-        type: "serial_status",
-        connected: false,
-        message: `连接失败：${err.message}`
-      });
-      return;
-    }
-
-    serialPath = portPath;
-    console.log(`✅ 串口已连接：${portPath}`);
-    broadcast({
-      type: "serial_status",
-      connected: true,
-      path: portPath
-    });
+  // Check WebSocket ready state
+  ws.on("open", () => {
+    console.log("🔗 WebSocket connection opened successfully");
   });
 
-  serial.on("data", (data) => {
+  ws.on("message", (msg) => {
     try {
-      const buffer = Buffer.from(data);
-      console.log(`📥 串口数据：${buffer.toString("hex")}`);
-
-      let message;
-      if (buffer.length >= 8 && buffer[0] === 0x0F && buffer[7] === 0xAA) {
-        if (buffer[2] === 0x01) {
-          const bottleId = buffer[4];
-          const status = buffer[6] === 0x01 ? "full" : "empty";
-          message = {
-            type: "bottle_status",
-            bottleId,
-            status,
-            timestamp: new Date().toISOString()
-          };
-          console.log(`🍾 瓶子 ${bottleId} 状态：${status}`);
-        } else if (buffer[2] === 0x00) {
-          const moduleId = buffer[4];
-          const moduleNames = { 0x00: "voice", 0x01: "clean", 0x02: "pouring", 0x03: "wifi", 0x04: "server" };
-          message = {
-            type: "module_status",
-            module: moduleNames[moduleId] || `unknown_${moduleId}`,
-            status: buffer[6],
-            timestamp: new Date().toISOString()
-          };
-        }
-      }
-
-      if (message) {
-        broadcast(message);
-      } else {
-        broadcast({
-          type: "raw_data",
-          data: buffer.toString("hex"),
-          timestamp: new Date().toISOString()
-        });
-      }
-    } catch (err) {
-      console.error(`❌ 串口数据解析错误：${err.message}`);
-    }
-  });
-
-  serial.on("error", (err) => {
-    console.error(`❌ 串口错误：${err.message}`);
-    broadcast({
-      type: "serial_status",
-      connected: false,
-      message: `错误：${err.message}`
-    });
-  });
-
-  serial.on("close", () => {
-    console.log(`🔌 串口已断开（${serialPath}）`);
-    broadcast({
-      type: "serial_status",
-      connected: false,
-      message: "连接已断开"
-    });
-  });
-}
-
-// ==================== 辅助函数 ====================
-// 显示局域网访问地址
-function logNetworkInterfaces() {
-  const interfaces = os.networkInterfaces();
-  Object.keys(interfaces).forEach(name => {
-    interfaces[name].forEach(iface => {
-      if (iface.family === "IPv4" && !iface.internal) {
-        console.log(`   局域网访问：http://${iface.address}:${HTTP_PORT}`);
-      }
-    });
-  });
-}
-
-// ==================== WebSocket交互 ====================
-wss.on("connection", (ws) => {
-  console.log("✅ 网页客户端已连接");
-  
-  // 发送初始状态
-  ws.send(JSON.stringify({
-    type: "initial_state",
-    serial: {
-      connected: serial?.isOpen || false,
-      currentPath: serialPath,
-      ports: serialPortList
-    }
-  }));
-
-  // 处理客户端消息
-  ws.on("message", (data) => {
-    try {
-      if (typeof data !== 'string') {
-        console.log(`📥 收到非字符串数据，跳过解析`);
+      // Check if WebSocket is still open before processing
+      if (ws.readyState !== ws.OPEN) {
+        console.warn("⚠️ Received message on closed WebSocket connection");
         return;
       }
-      const msg = JSON.parse(data);
-      
-      // 连接串口
-      if (msg.type === "serial_connect") {
-        console.log(`📞 客户端请求连接串口：${msg.path}`);
-        initSerial(msg.path);
+
+      // Check if it's binary data (Buffer) or text
+      if (Buffer.isBuffer(msg)) {
+        serial.write(msg);
+        console.log("➡️ Sent to serial:", Array.from(msg).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+      } else {
+        // Try to parse as JSON for text messages
+        const data = JSON.parse(msg);
+        console.log("📩 Received JSON:", data);
+        
       }
-      // 发送串口指令
-      else if (msg.type === "serial_command" && serial?.isOpen) {
-        serial.write(Buffer.from(msg.data, "hex"), (err) => {
-          if (err) console.error(`❌ 串口发送失败：${err.message}`);
-          else console.log(`➡️ 发送到串口：${msg.data}`);
-        });
-      }
-    } catch (err) {
-      console.error(`❌ WebSocket消息处理错误：${err.message}`);
+    } catch (e) {
+      console.error("⚠️ Invalid message:", e);
+      console.error("   Message content:", msg.toString());
     }
   });
 
-  // 客户端断开连接
-  ws.on("close", () => {
-    console.log("🔌 网页客户端已断开");
+  // 串口收到数据时转发回前端
+  serial.on("data", (data) => {
+    // Check if WebSocket is still open before sending
+    if (ws.readyState === ws.OPEN) {
+      try {
+        // Parse the serial data
+        const buffer = Buffer.from(data);
+        console.log("📨 Received serial data:", Array.from(buffer).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+        console.log("📨 Buffer length:", buffer.length);
+        console.log("📨 First 4 bytes:", Array.from(buffer.slice(0, 4)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+        console.log("📨 Last byte:", '0x' + buffer[buffer.length - 1].toString(16).padStart(2, '0'));
+        
+        // Check if it's a bottle status message (0x0F, bottle_id, status, 0xAA)
+        if (buffer.length >= 8 && buffer[0] === 0x0F && buffer[7] === 0xAA){
+          if (buffer[2] === 0x01) {
+            const bottleId = buffer[4];
+            const status = buffer[6];
+            
+            console.log(`🍾 Bottle ${bottleId} status: ${status === 0x01 ? 'FULL' : 'EMPTY'}`);
+            
+            // Send structured data to frontend
+            const message = {
+              type: 'bottle_status',
+              bottleId: bottleId,
+              status: status === 0x01 ? 'full' : 'empty',
+              raw: Array.from(buffer).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+            };
+            
+            ws.send(JSON.stringify(message));
+           } else if (buffer[2] === 0x00) {
+             const moduleId = buffer[4];
+             const status = buffer[6];
+             // Map module ID to readable name
+             let moduleName;
+             switch(moduleId) {
+               case 0x00:
+                 moduleName = "voice";
+                 break;
+               case 0x01:
+                 moduleName = "clean";
+                 break;
+               case 0x02:
+                 moduleName = "pouring";
+                 break;
+              case 0x03:
+                moduleName = "wifi";
+                break;
+              case 0x04:
+                moduleName = "server";
+                break;
+               default:
+                 moduleName = `unknown_${moduleId}`;
+             }
+
+             console.log(`🔧 Module ${moduleName} (ID: ${moduleId}) status: ${status}`);
+             const message = {
+               type: 'module_status',
+               module: moduleName,
+               moduleId: moduleId,
+               status: status,
+               raw: Array.from(buffer).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+             };
+             
+             ws.send(JSON.stringify(message));
+          } else {
+            console.log("📨 Message doesn't match bottle status format, sending as raw hex");
+            // Send raw hex data for other messages
+            ws.send(data.toString("hex"));
+  
+          }
+        } else {
+          console.log("📨 Message format incorrect sending as raw hex");
+          ws.send(data.toString("hex"));
+        }
+      } catch (error) {
+        console.error("❌ Failed to send data to WebSocket client:", error.message);
+      }
+    } else {
+      console.warn("⚠️ WebSocket connection is not open, cannot send serial data");
+    }
+  });
+
+  ws.on("close", (code, reason) => {
+    console.log(`🔌 WebSocket disconnected from ${clientIP}`);
+    console.log(`   Close code: ${code}`);
+    console.log(`   Reason: ${reason || 'No reason provided'}`);
+  });
+
+  // Handle unexpected connection termination
+  ws.on("unexpected-response", (request, response) => {
+    console.error("❌ WebSocket unexpected response:", response.statusCode);
+    console.error("   Response headers:", response.headers);
   });
 });
-
-// ==================== 启动流程 ====================
-async function start() {
-  // 初始化串口列表
-  try {
-    const ports = await SerialPort.list();
-    serialPortList = ports.map(port => ({
-      path: port.path,
-      manufacturer: port.manufacturer || "未知设备"
-    }));
-    console.log(`🔍 可用串口：${serialPortList.map(p => p.path).join(", ")}`);
-  } catch (err) {
-    console.error(`❌ 串口列表查询失败：${err.message}`);
-  }
-}
-
-// 启动应用
-start();
