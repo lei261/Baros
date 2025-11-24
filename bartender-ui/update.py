@@ -94,10 +94,12 @@ def pull_update():
     print("拉取远程最新代码...")
     fetch_res = run_command(["git", "fetch", "--prune", "origin", BRANCH], cwd=TARGET_DIR)
     if not fetch_res["success"]:
+        print(f"? fetch_res{fetch_res['error']}")
         return fetch_res
 
     pull_res = run_command(["git", "reset", "--hard", f"origin/{BRANCH}"], cwd=TARGET_DIR)
     if not pull_res["success"]:
+        print(f"? pull_res{pull_res['error']}")
         return pull_res
 
     rev_res = run_command(["git", "rev-parse", "HEAD"], cwd=TARGET_DIR)
