@@ -9,6 +9,9 @@ esphome:
   project:
     name: lei261.baros_main
     version: "2025.11.10.4"
+  # =============================================================================
+  # 【自动更新功能】启动时自动检查并安装固件更新
+  # =============================================================================
   on_boot:
     - priority: -100.0
       then:
@@ -18,9 +21,11 @@ esphome:
               wifi.connected:
         - delay: 5s
         - logger.log: "开始检查固件更新..."
+        # 调用更新检查函数，从manifest.json获取最新版本信息
         - lambda: |-
             id(fw_update).check();
         - delay: 3s
+        # 检查更新状态，如果发现新版本则自动安装
         - lambda: |-
             if (id(fw_update).state == esphome::update::UPDATE_STATE_AVAILABLE) {
               ESP_LOGI("fw_update", "检测到新固件，自动安装...");
@@ -30,18 +35,28 @@ esphome:
             }
 packages:
   - !include common_main.yaml
+
+# =============================================================================
+# 【自动更新功能】OTA固件更新平台配置
+# =============================================================================
 update: 
   - platform: http_request
     id: fw_update
     name: "Firmware Update"
+    # manifest.json文件URL，包含最新固件版本、MD5校验和下载地址
     source: "https://raw.githubusercontent.com/lei261/Baros/main/baros_firmware/machine2-manifest.json"
+    # 每6小时自动检查一次更新（此处的检查不会自动安装，仅检查）
     update_interval: 6h
+    # 当检测到可用更新时触发（通常由on_boot或手动按钮触发安装）
     on_update_available:
       then:
         - logger.log: "发现新固件版本，开始自动更新!"
         - update.perform: fw_update
 
 
+# =============================================================================
+# 【自动更新功能】外部组件：http_request平台（用于OTA更新）
+# =============================================================================
 external_components:
   - source:
       type: git
@@ -76,12 +91,15 @@ logger:
     sensor: NONE
     ntc: NONE
 # =============================================================================
-# HTTP请求配置
+# HTTP请求配置（用于OTA更新）
 # =============================================================================
 http_request:
   verify_ssl: true
+  # 看门狗超时：600秒（10分钟），防止大文件下载时超时
   watchdog_timeout: 600s
-  timeout: 180s
+  # 请求超时：60秒（1分钟），单次HTTP请求的最大等待时间
+  # 注意：不能超过65535毫秒（约65秒），否则会溢出
+  timeout: 60s
 
 # =============================================================================
 # 全局变量定义
@@ -110,6 +128,58 @@ globals:
   - id: RECIPE_READY
     type: bool
     initial_value: 'false'
+
+  # =============================================================================
+  # 【6种酒预设配方】每种酒的容量和顺序数组（用户可自定义）
+  # =============================================================================
+  # 酒1的配方：容量数组（单位：mL）
+  - id: WINE1_VOLUME
+    type: float[7]
+    initial_value: '{45, 36, 0, 0, 0, 0, 0}'  # 用户自定义：例如 {30, 20, 0, 0, 0, 0, 0}
+  # 酒1的配方：水箱顺序数组
+  - id: WINE1_TANK_ORDER
+    type: int[7]
+    initial_value: '{2, 1, 0, 0, 0, 0, 0}'  # 用户自定义：例如 {1, 2, 0, 0, 0, 0, 0}
+
+  # 酒2的配方
+  - id: WINE2_VOLUME
+    type: float[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+  - id: WINE2_TANK_ORDER
+    type: int[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+
+  # 酒3的配方
+  - id: WINE3_VOLUME
+    type: float[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+  - id: WINE3_TANK_ORDER
+    type: int[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+
+  # 酒4的配方
+  - id: WINE4_VOLUME
+    type: float[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+  - id: WINE4_TANK_ORDER
+    type: int[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+
+  # 酒5的配方
+  - id: WINE5_VOLUME
+    type: float[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+  - id: WINE5_TANK_ORDER
+    type: int[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+
+  # 酒6的配方
+  - id: WINE6_VOLUME
+    type: float[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
+  - id: WINE6_TANK_ORDER
+    type: int[7]
+    initial_value: '{0, 0, 0, 0, 0, 0, 0}'
 
 
 
@@ -360,22 +430,96 @@ button:
       then:
         - script.execute: clean_system
 
+  # =============================================================================
+  # 【自动更新功能】手动检查并安装更新按钮
+  # =============================================================================
   - platform: template
     name: "检查并安装更新"
     id: check_and_install_update_button
     on_press:
       then:
         - logger.log: "开始检查更新..."
+        # 手动触发更新检查
         - lambda: |-
             id(fw_update).check();
-        - delay: 3s
+        - delay: 5s  # 增加等待时间，给网络连接更多时间
+        # 检查更新状态，如果发现新版本则自动安装
         - lambda: |-
-            if (id(fw_update).state == esphome::update::UPDATE_STATE_AVAILABLE) {
+            auto state = id(fw_update).state;
+            if (state == esphome::update::UPDATE_STATE_AVAILABLE) {
               ESP_LOGI("fw_update", "检测到新固件，开始安装");
               id(fw_update).perform(false);
+            } else if (state == esphome::update::UPDATE_STATE_NO_UPDATE) {
+              ESP_LOGI("fw_update", "当前已是最新版本，无需更新");
+            } else if (state == esphome::update::UPDATE_STATE_INSTALLING) {
+              ESP_LOGI("fw_update", "固件正在安装中...");
             } else {
-              ESP_LOGI("fw_update", "没有可用更新，结束");
+              ESP_LOGW("fw_update", "检查更新完成，状态: %d (0=UNKNOWN, 1=NO_UPDATE, 2=AVAILABLE, 3=INSTALLING)", state);
+              ESP_LOGW("fw_update", "如果状态为0，可能是网络连接失败，请检查网络或稍后重试");
             }
+
+  # =============================================================================
+  # 【6种酒预设配方】6个酒的按钮，按下后加载对应配方并执行
+  # =============================================================================
+  - platform: template
+    name: "酒1"
+    id: wine1_button
+    on_press:
+      then:
+        - logger.log: "选择酒1"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 1
+
+  - platform: template
+    name: "酒2"
+    id: wine2_button
+    on_press:
+      then:
+        - logger.log: "选择酒2"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 2
+
+  - platform: template
+    name: "酒3"
+    id: wine3_button
+    on_press:
+      then:
+        - logger.log: "选择酒3"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 3
+
+  - platform: template
+    name: "酒4"
+    id: wine4_button
+    on_press:
+      then:
+        - logger.log: "选择酒4"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 4
+
+  - platform: template
+    name: "酒5"
+    id: wine5_button
+    on_press:
+      then:
+        - logger.log: "选择酒5"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 5
+
+  - platform: template
+    name: "酒6"
+    id: wine6_button
+    on_press:
+      then:
+        - logger.log: "选择酒6"
+        - script.execute:
+            id: load_wine_recipe
+            wine_num: 6
 
 # =============================================================================
 # 开关控制配置
@@ -1207,4 +1351,76 @@ script:
             then:
               - logger.log: "Request failed!"
               # - button.press: restart_button
+
+  # =============================================================================
+  # 【6种酒预设配方】复制指定酒的配方到执行数组
+  # 注意：执行配方使用 common_main.yaml 中的 make_recipe 脚本（统一执行逻辑）
+  # =============================================================================
+  - id: load_wine_recipe
+    parameters:
+      wine_num: int  # 1-6，对应6种酒
+    mode: single
+    then:
+      - logger.log:
+          format: "加载酒%d的配方"
+          args: ['wine_num']
+      # 检查是否有配方正在执行，避免冲突
+      - if:
+          condition:
+            or:
+              - script.is_running: make_recipe
+              - lambda: 'return id(LIQUID_POURING) == true;'
+              - lambda: 'return id(RECIPE_READY) == true;'
+          then:
+            - logger.log:
+                format: "警告：配方正在执行中，跳过加载酒%d的配方"
+                args: ['wine_num']
+          else:
+            - lambda: |-
+                size_t size = 7;
+                float* volume_src = nullptr;
+                int* order_src = nullptr;
+                
+                // 根据酒编号选择对应的源数组
+                switch(wine_num) {
+                  case 1:
+                    volume_src = id(WINE1_VOLUME);
+                    order_src = id(WINE1_TANK_ORDER);
+                    break;
+                  case 2:
+                    volume_src = id(WINE2_VOLUME);
+                    order_src = id(WINE2_TANK_ORDER);
+                    break;
+                  case 3:
+                    volume_src = id(WINE3_VOLUME);
+                    order_src = id(WINE3_TANK_ORDER);
+                    break;
+                  case 4:
+                    volume_src = id(WINE4_VOLUME);
+                    order_src = id(WINE4_TANK_ORDER);
+                    break;
+                  case 5:
+                    volume_src = id(WINE5_VOLUME);
+                    order_src = id(WINE5_TANK_ORDER);
+                    break;
+                  case 6:
+                    volume_src = id(WINE6_VOLUME);
+                    order_src = id(WINE6_TANK_ORDER);
+                    break;
+                  default:
+                    ESP_LOGW("load_wine_recipe", "无效的酒编号: %d", wine_num);
+                    return;
+                }
+                
+                // 复制配方到执行数组
+                for (size_t i = 0; i < size; i++) {
+                  id(RECIPE_WINE_VOLUME)[i] = volume_src[i];
+                  id(RECIPE_TANK_ORDER)[i] = order_src[i];
+                  ESP_LOGI("load_wine_recipe", "步骤 %d: 水箱%d, 容量%.1f mL", i+1, order_src[i], volume_src[i]);
+                }
+                
+                id(RECIPE_READY) = true;
+                ESP_LOGI("load_wine_recipe", "酒%d配方已加载", wine_num);
+            # 加载完成后自动执行配方（使用统一的 make_recipe 脚本）
+            - script.execute: make_recipe
 
