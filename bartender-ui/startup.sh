@@ -51,6 +51,8 @@ npm i express ws serialport >> "$APP_DIR/npm-install.log" 2>&1 || true
 
 URL="file://$APP_DIR/public/index.html?hw=${HW_VERSION}"
 
+unclutter -idle 0 -root &
+
 # Launch Chromium (non-blocking) with your flags and the FULL path:
 chromium \
   --kiosk \
